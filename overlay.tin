@@ -1,0 +1,193 @@
+#nop ============================================================
+#nop  overlay.tin - On-screen UI for sktintin.
+#nop
+#nop  Layout (split rows reserved in sk.tin via `#split 3 1`):
+#nop
+#nop          NW   N  NE          rows 1-3, anchored top-right
+#nop           W  ( )  E
+#nop          SW   S  SE
+#nop      --[ scrollback ]--
+#nop      Tick ~37s [###....]     row -2 (bottom status bar)
+#nop      >                       row -1 (input)
+#nop
+#nop  Mouse tracking is enabled in sk.tin so taps register as
+#nop  left-clicks and fire #button regions.
+#nop ============================================================
+
+
+#nop ============================================================
+#nop  Section 1 - Compass (8-direction tap pad, top-right)
+#nop ============================================================
+
+#variable {overlay_cols} {80}
+
+#alias {overlay_compass_render}
+{
+    #math {c0}  {$overlay_cols - 10};
+    #math {c2}  {$c0 + 2};
+    #math {c4}  {$c0 + 4};
+    #math {c6}  {$c0 + 6};
+    #math {c8}  {$c0 + 8};
+    #math {c10} {$c0 + 10};
+
+    #draw tile 1 $c0  1 $c2  {<bcb>NW};
+    #draw tile 1 $c4  1 $c6  {<bcb> N};
+    #draw tile 1 $c8  1 $c10 {<bcb>NE};
+    #draw tile 2 $c0  2 $c2  {<bcb> W};
+    #draw tile 2 $c4  2 $c6  {<inf> *};
+    #draw tile 2 $c8  2 $c10 {<bcb> E};
+    #draw tile 3 $c0  3 $c2  {<bcb>SW};
+    #draw tile 3 $c4  3 $c6  {<bcb> S};
+    #draw tile 3 $c8  3 $c10 {<bcb>SE};
+
+    #button {1 $c0 1 $c2}   {nw};
+    #button {1 $c4 1 $c6}   {n};
+    #button {1 $c8 1 $c10}  {ne};
+    #button {2 $c0 2 $c2}   {w};
+    #button {2 $c8 2 $c10}  {e};
+    #button {3 $c0 3 $c2}   {sw};
+    #button {3 $c4 3 $c6}   {s};
+    #button {3 $c8 3 $c10}  {se};
+}
+
+
+#nop ============================================================
+#nop  Section 2 - Tick timer (bottom status row)
+#nop
+#nop  Ported from Mudlet skmudlet (Triggers/ticktimer + Timers).
+#nop  Model: 61-second wrap counter. Increments once per second;
+#nop  trigger patterns below reset it to 0 when a tick is observed.
+#nop  Counter wraps at 61 so the display stays sane if reset
+#nop  triggers miss a tick.
+#nop ============================================================
+
+#variable {tick_time}      {0}
+#variable {tick_max}       {61}
+#variable {tick_bar_width} {20}
+
+#alias {overlay_tick_render}
+{
+    #math {tick_left} {$tick_max - $tick_time};
+    #math {bar_fill}  {($tick_time * $tick_bar_width) / $tick_max};
+    #math {bar_empty} {$tick_bar_width - $bar_fill};
+
+    #variable {bar} {};
+    #loop {1} {$bar_fill}  {x} {#variable {bar} {$bar#}};
+    #loop {1} {$bar_empty} {x} {#variable {bar} {$bar.}};
+
+    #draw tile -2 1 -2 -1 {<inf>Tick ~$tick_left""s [$bar]};
+}
+
+#alias {tick_reset}
+{
+    #variable {tick_time} {0};
+    overlay_tick_render;
+}
+
+#nop Conditional reset for weather messages: only re-anchor if we're
+#nop already near a tick boundary (matches Mudlet weather_messages).
+#alias {tick_weather_reset}
+{
+    #if {$tick_time >= 55 || $tick_time <= 5} {tick_reset};
+}
+
+#ticker {tick_update}
+{
+    #math {tick_time} {$tick_time + 1};
+    #if {$tick_time >= $tick_max} {#variable {tick_time} {0}};
+    overlay_tick_render;
+} {1.0}
+
+
+#nop ============================================================
+#nop  Section 3 - Tick reset triggers
+#nop
+#nop  Hard reset (definitive tick markers - from Mudlet tick_echoes).
+#nop  Each line is one MUD output pattern; %1 = wildcard word.
+#nop ============================================================
+
+#action {You are hungry.}                                  {tick_reset}
+#action {You are thirsty.}                                 {tick_reset}
+#action {Your pulse slows to normal.}                      {tick_reset}
+#action {The comforts of the inn put you at ease.}         {tick_reset}
+#action {You feel an effervescent energy dissipate into your dreams.}                 {tick_reset}
+#action {Death arrives and escorts your soul to the spirit world.}                    {tick_reset}
+#action {A magical gate vanishes into thin air.}           {tick_reset}
+#action {The mystic portal vanishes into thin air.}        {tick_reset}
+#action {A glowing portal snaps into existence in the midst of the stones!}           {tick_reset}
+#action {The city stirs to shake off the night as a new day begins.}                  {tick_reset}
+#action {The city slows, drawing in on itself as dusk gathers and another day ends.}  {tick_reset}
+#action {In the distance, Peacekeepers call the changing of the guard.}               {tick_reset}
+#action {The Teronian Temple bell strikes six times, ringing loudly through the streets.} {tick_reset}
+#action {The deathly silence is broken by a muffled whistle of arctic air.}           {tick_reset}
+#action {A slight wind blows a chill into living tissue.}  {tick_reset}
+#action {Touched by a light breeze, the clouds rearrange themselves.}                 {tick_reset}
+#action {The shuffling of feet can be heard in the distance.}                         {tick_reset}
+#action {The clinking of metal on stone resounds through the caves.}                  {tick_reset}
+#action {You hear a distant rumble as stone shifts somewhere deep below you.}         {tick_reset}
+#action {The plants recede back into the ground.}          {tick_reset}
+#action {The stones glow eerily...}                        {tick_reset}
+#action {Drip...Drip...Drip...}                            {tick_reset}
+#action {You are ready to summon another treant.}          {tick_reset}
+#action {The white aura around your body fades.}           {tick_reset}
+#action {Your symbol slowly begins to melt and reform!}    {tick_reset}
+#action {A bracer made of mithril scales on %1's wrist shimmers slightly.}            {tick_reset}
+#action {A corpse of %1 decays into dust.}                 {tick_reset}
+#action {The %1 crumbles into dust.}                       {tick_reset}
+#action {%1 regains consciousness and rises unsteadily to %2 feet.}                   {tick_reset}
+#action {An aura of divine blessing surrounds %1.}         {tick_reset}
+#action {A ruddy pebble on a chain worn by %1 glows red momentarily.}                 {tick_reset}
+#action {The ether wire phases partially out of existence.} {tick_reset}
+
+#nop ---- Soft reset: weather messages, only near tick boundaries.
+#action {It's breezy.}                                     {tick_weather_reset}
+#action {It's hot out here.}                               {tick_weather_reset}
+#action {It's cold!}                                       {tick_weather_reset}
+#action {It's mild out today.}                             {tick_weather_reset}
+#action {It's nice and warm out.}                          {tick_weather_reset}
+#action {It's cool out here.}                              {tick_weather_reset}
+#action {It's a bit nippy here.}                           {tick_weather_reset}
+#action {It's really c-c-c-cold!!}                         {tick_weather_reset}
+#action {It's hotter than anyone could imagine.}           {tick_weather_reset}
+#action {It's really, really hot here.  A slight breeze would really improve things.} {tick_weather_reset}
+#action {It's raining lightly.}                            {tick_weather_reset}
+#action {It rains a bit harder.}                           {tick_weather_reset}
+#action {The rain stops.}                                  {tick_weather_reset}
+#action {The rain is falling less heavily now.}            {tick_weather_reset}
+#action {The rain turns to snow.}                          {tick_weather_reset}
+#action {The snow turns to a cold rain.}                   {tick_weather_reset}
+#action {A light drizzle is falling here.}                 {tick_weather_reset}
+#action {A light snow is falling amidst an unsettled wind.}   {tick_weather_reset}
+#action {A lightly falling snow is being driven by a strong wind.} {tick_weather_reset}
+#action {The snow is coming down faster now.}              {tick_weather_reset}
+#action {The snow has let up a little.}                    {tick_weather_reset}
+#action {It stops snowing.}                                {tick_weather_reset}
+#action {There's a blizzard out here, making it quite difficult to see.}              {tick_weather_reset}
+#action {Drifts in the snow are being formed by the wind.}    {tick_weather_reset}
+#action {A cool breeze wafts by.}                          {tick_weather_reset}
+#action {A warm pocket of air is rolling through here.}    {tick_weather_reset}
+#action {A blast of freezing wind chills you to the bone.}    {tick_weather_reset}
+#action {A freezing wind blows gently, but firmly against all obstacles in the area.} {tick_weather_reset}
+#action {The breeze dies away to nothing.}                 {tick_weather_reset}
+#action {The wind begins to blow from the %1.}             {tick_weather_reset}
+#action {The wind changes and begins blowing from the %1.} {tick_weather_reset}
+#action {The wind isn't very strong here, but the cold makes it quite noticeable.}    {tick_weather_reset}
+#action {The wind and a bit of rain hint at the possibility of a storm.}              {tick_weather_reset}
+#action {A few drops of rain are falling amidst a fierce windstorm.}                  {tick_weather_reset}
+#action {The arid wind brings no relief.}                  {tick_weather_reset}
+#action {The sun slowly disappears in the %1.}             {tick_weather_reset}
+
+
+#nop ============================================================
+#nop  Section 4 - Resize handling and initial render
+#nop ============================================================
+
+#event {SCREEN SIZE}       {#variable {overlay_cols} {%1}; overlay_compass_render; overlay_tick_render}
+#event {SCREEN RESIZE}     {#variable {overlay_cols} {%1}; overlay_compass_render; overlay_tick_render}
+#event {SESSION CONNECTED} {overlay_compass_render; overlay_tick_render}
+
+#nop Try to pull current width up front (event will correct if needed).
+#screen {get} {COLS} {overlay_cols}
+
+overlay_compass_render
+overlay_tick_render

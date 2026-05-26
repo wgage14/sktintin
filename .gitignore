@@ -1,0 +1,14 @@
+#nop Session/event log output
+*.log
+
+#nop Local overrides (credentials, host tweaks). Keep these off GitHub.
+local.tin
+*.local.tin
+
+#nop Editor/OS noise
+.DS_Store
+*.swp
+*~
+
+#nop Context referneces
+.reference/

@@ -1,0 +1,26 @@
+#nop ============================================================
+#nop  events.tin - Timestamped session lifecycle messages.
+#nop
+#nop  Event arg layout (from the TinTin++ event reference):
+#nop    SESSION CONNECTED    %0 name %1 host %2 ip %3 port %4 file
+#nop    SESSION DISCONNECTED %0 name %1 host %2 ip %3 port
+#nop    SESSION TIMED OUT    %0 name %1 host %2 ip %3 port
+#nop ============================================================
+
+#event {SESSION CONNECTED}
+{
+    #format {ts} {%t} {%Y-%m-%d %H:%M:%S};
+    #showme {<grn>[$ts] CONNECTED     %0 -> %1:%3};
+}
+
+#event {SESSION DISCONNECTED}
+{
+    #format {ts} {%t} {%Y-%m-%d %H:%M:%S};
+    #showme {<red>[$ts] DISCONNECTED  %0 from %1:%3};
+}
+
+#event {SESSION TIMED OUT}
+{
+    #format {ts} {%t} {%Y-%m-%d %H:%M:%S};
+    #showme {<yel>[$ts] TIMED OUT     %0 from %1:%3};
+}
