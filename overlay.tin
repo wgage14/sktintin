@@ -61,26 +61,28 @@
     #math {y1e} {$y1 + $btn_h - 1};
     #math {y2e} {$y2 + $btn_h - 1};
 
-    #nop draw cells: white-on-blue buttons, centered label
-    #draw <074> CALIGN tile $y0 $x0 $y0e $x0e {NW};
-    #draw <074> CALIGN tile $y0 $x1 $y0e $x1e {N};
-    #draw <074> CALIGN tile $y0 $x2 $y0e $x2e {NE};
-    #draw <074> CALIGN tile $y1 $x0 $y1e $x0e {W};
-    #draw <034> CALIGN tile $y1 $x1 $y1e $x1e {+};
-    #draw <074> CALIGN tile $y1 $x2 $y1e $x2e {E};
-    #draw <074> CALIGN tile $y2 $x0 $y2e $x0e {SW};
-    #draw <074> CALIGN tile $y2 $x1 $y2e $x1e {S};
-    #draw <074> CALIGN tile $y2 $x2 $y2e $x2e {SE};
+    #nop draw cells: white-on-blue buttons, centered label.
+    #nop ${var} delimiting is required here -- #draw/#button square parsing
+    #nop mishandles bare $var boundaries (drops some, e.g. $y0 -> literal).
+    #draw <074> CALIGN tile ${y0} ${x0} ${y0e} ${x0e} {NW};
+    #draw <074> CALIGN tile ${y0} ${x1} ${y0e} ${x1e} {N};
+    #draw <074> CALIGN tile ${y0} ${x2} ${y0e} ${x2e} {NE};
+    #draw <074> CALIGN tile ${y1} ${x0} ${y1e} ${x0e} {W};
+    #draw <034> CALIGN tile ${y1} ${x1} ${y1e} ${x1e} {+};
+    #draw <074> CALIGN tile ${y1} ${x2} ${y1e} ${x2e} {E};
+    #draw <074> CALIGN tile ${y2} ${x0} ${y2e} ${x0e} {SW};
+    #draw <074> CALIGN tile ${y2} ${x1} ${y2e} ${x1e} {S};
+    #draw <074> CALIGN tile ${y2} ${x2} ${y2e} ${x2e} {SE};
 
     #nop clickable regions (taps -> direction commands)
-    #button {$y0 $x0 $y0e $x0e} {nw};
-    #button {$y0 $x1 $y0e $x1e} {n};
-    #button {$y0 $x2 $y0e $x2e} {ne};
-    #button {$y1 $x0 $y1e $x0e} {w};
-    #button {$y1 $x2 $y1e $x2e} {e};
-    #button {$y2 $x0 $y2e $x0e} {sw};
-    #button {$y2 $x1 $y2e $x1e} {s};
-    #button {$y2 $x2 $y2e $x2e} {se};
+    #button {${y0} ${x0} ${y0e} ${x0e}} {nw};
+    #button {${y0} ${x1} ${y0e} ${x1e}} {n};
+    #button {${y0} ${x2} ${y0e} ${x2e}} {ne};
+    #button {${y1} ${x0} ${y1e} ${x0e}} {w};
+    #button {${y1} ${x2} ${y1e} ${x2e}} {e};
+    #button {${y2} ${x0} ${y2e} ${x0e}} {sw};
+    #button {${y2} ${x1} ${y2e} ${x1e}} {s};
+    #button {${y2} ${x2} ${y2e} ${x2e}} {se};
 }
 
 
@@ -109,8 +111,7 @@
     #if {$bar_fill  > 0} {#loop {1} {$bar_fill}  {x} {#variable {bar} {$bar█}}};
     #if {$bar_empty > 0} {#loop {1} {$bar_empty} {x} {#variable {bar} {$bar░}}};
 
-    #nop Space before "sec" delimits the variable (avoids the $var+text trap).
-    #draw <fca> tile -2 1 -2 -1 { Next tick in ~$tick_left sec  $bar};
+    #draw <fca> tile -2 1 -2 -1 { Next tick in ~${tick_left} sec  ${bar}};
 }
 
 #alias {tick_reset}
@@ -221,15 +222,12 @@
 #nop  `#buffer up/down` page the scrollback; `#buffer end` returns to live.
 #nop ============================================================
 
-#nop --- Touchscreen swipe (Termux). %0 = direction string. The exact
-#nop --- spelling varies, so we accept common variants. To discover the
-#nop --- real value on your device run `#config {mouse info} {on}` and
-#nop --- swipe once; then trim these to whatever fires.
-#event {SWIPED}
-{
-    #if {"%0" == "down" || "%0" == "DOWN" || "%0" == "d"} {#buffer up};
-    #if {"%0" == "up"   || "%0" == "UP"   || "%0" == "u"} {#buffer down};
-}
+#nop --- Mouse wheel / finger scroll. Termux delivers a finger drag as
+#nop --- repeated mouse-wheel events, so we scroll a few lines per notch.
+#nop --- scroll_lines = lines moved per wheel event (tune to taste).
+#variable {scroll_lines} {3}
+#event {SCROLLED MOUSE WHEEL UP}   {#buffer up   ${scroll_lines}}
+#event {SCROLLED MOUSE WHEEL DOWN} {#buffer down ${scroll_lines}}
 
 #nop --- Keyboard fallback (also handy when testing on desktop).
 #nop PageUp / PageDown scroll; End jumps back to the live feed.

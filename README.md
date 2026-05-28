@@ -72,14 +72,13 @@ The `#split` puts TinTin++ in full-screen mode, which disables the
 terminal's own scrollback. Scrolling is re-bound in
 [overlay.tin](overlay.tin):
 
-- **Finger swipe (phone):** swipe down = scroll up into history, swipe up
-  = back toward live output. This relies on TinTin++ `SWIPED` events; the
-  direction string can vary by build. If swiping does nothing, run
-  `#config {mouse info} {on}`, swipe once, and note the value after
-  `SWIPED` — then adjust the `#event {SWIPED}` block to match.
+- **Finger scroll (phone):** Termux delivers a finger drag as
+  `SCROLLED MOUSE WHEEL UP` / `... DOWN` events, bound to
+  `#buffer up`/`down`. Adjust `scroll_lines` (default 3) for how many
+  lines move per wheel notch.
 - **Keyboard:** PageUp / PageDown scroll, End jumps back to live output.
-- Any `#buffer up` leaves you in scroll-lock; `#buffer end` (or End)
-  returns to the live feed.
+- Scrolling up enables scroll-lock (new text is held); scroll back to the
+  bottom, press End, or run `#buffer end` to return to the live feed.
 
 ## Setup on Termux (Pixel 8 Pro)
 
