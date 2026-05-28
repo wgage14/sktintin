@@ -12,21 +12,25 @@ required on mobile.
 - **Timestamped connect/disconnect events** — every `SESSION CONNECTED`,
   `SESSION DISCONNECTED`, and `SESSION TIMED OUT` is printed in-session
   with a `YYYY-MM-DD HH:MM:SS` prefix. See [events.tin](events.tin).
-- **8-direction tap compass** in the upper-right of the reserved top band,
-  sized for portrait play. Taps map to `n / ne / e / se / s / sw / w / nw`.
-  Button size and spacing are tunable (see below).
-- **Tick timer** in the upper-left of the same top band: `Next tick ~37 sec`
-  over a block-character progress bar that fills as the tick approaches.
-  Increments once per second; ~70 trigger patterns re-anchor it to 0 when
-  a tick is observed (regen, hunger, weather, etc.). Weather messages only
-  re-anchor near tick boundaries (within 5s) since they're unreliable
-  mid-tick. Logic ported from the Mudlet `skmudlet` profile's `ticktimer`
-  trigger group.
+- **9-button nav pad** on the right ~third of a reserved band at the
+  **bottom** of the screen, sized for portrait play. The 3x3 grid sends
+  `n / ne / e / se / s / sw / w / nw`, and the **center button sends
+  `look`** (labelled `Lk`).
+- **Command row** on the lower-left: buttons sending `1`, `2`, `3`,
+  `worth`, `score`, and a **sleep/stand toggle** — it shows/sends `sleep`,
+  then flips to show/send `stand`, and back.
+- **Tick timer** on the upper-left, with the `Next tick ~37 s` label
+  embedded **inside** a block-character bar that fills as the tick
+  approaches. Increments once per second; ~70 trigger patterns re-anchor
+  it to 0 when a tick is observed (regen, hunger, weather, etc.). Weather
+  messages only re-anchor near tick boundaries (within 5s) since they're
+  unreliable mid-tick. Logic ported from the Mudlet `skmudlet` profile's
+  `ticktimer` group.
 - **Scrollback via finger scroll / keyboard** — because the split takes over
   the screen, native terminal scroll is disabled and re-bound to `#buffer`
   (see Scrolling below).
 
-Both UI elements live in [overlay.tin](overlay.tin).
+All of the UI lives in [overlay.tin](overlay.tin).
 
 ## Files
 
@@ -34,21 +38,21 @@ Both UI elements live in [overlay.tin](overlay.tin).
 |---|---|
 | [sk.tin](sk.tin) | Entry point. Sets config, loads modules, opens the session. |
 | [events.tin](events.tin) | Connect / disconnect / timeout timestamping. |
-| [overlay.tin](overlay.tin) | Owns the screen split. Top-left tick timer + top-right compass + scrollback bindings (`#draw` + `#button` + `#ticker` + `#action`). |
+| [overlay.tin](overlay.tin) | Owns the screen split. Bottom band: tick timer + nav pad + command row + scrollback bindings (`#draw` + `#button` + `#ticker` + `#action`). |
 
 ## Screen layout
 
-The `#split` reserves one band at the top, shared left/right:
+The `#split` reserves one band at the **bottom**, just above the input line:
 
 ```
- Next tick ~37 sec      +----+ +----+ +----+
- ##########____         | NW | |  N | | NE |
-                        +----+ +----+ +----+
-                        | W  |        |  E |
-                        +----+ +----+ +----+
-                        | SW | |  S | | SE |
  -----------------[ scrollback ]-----------------
- >                                        (input)
+ ###Next tick ~37 s###       +--+ +--+ +--+
+                             |NW| | N| |NE|
+ +-+ +-+ +-+ +--+ +--+ +--+  +--+ +--+ +--+
+ |1| |2| |3| |Wo| |Sc| |Sl|  | W| |Lk| | E|
+ +-+ +-+ +-+ +--+ +--+ +--+  +--+ +--+ +--+
+       (1 2 3 worth score sleep) |SW| | S| |SE|
+ >                                    (input)
 ```
 
 Coordinates are passed to `#draw`/`#button` through helper aliases
@@ -56,20 +60,20 @@ Coordinates are passed to `#draw`/`#button` through helper aliases
 those commands' square parsing drops bare `$var` coordinates
 inconsistently, so the helpers hand them literal numbers instead.
 
-## Tuning button size
+## Tuning the layout
 
 Edit the geometry vars at the top of [overlay.tin](overlay.tin):
 
 ```
-#variable {btn_w} {6}   #nop button width  (columns)
-#variable {btn_h} {2}   #nop button height (rows)
+#variable {btn_h} {2}   #nop nav-button height (rows)
 #variable {gap_x} {1}   #nop horizontal gap between buttons
 #variable {gap_y} {1}   #nop vertical gap between buttons
 ```
 
-The top band height is derived automatically (`btn_h * 3 + gap_y * 2`),
-so bigger buttons reserve more rows up top (and give the tick timer more
-room on the left). Reload with `#read sk.tin` (or restart) after changing.
+Button *width* is derived automatically so the nav pad fills the right
+third of the screen and the tick/command area gets the left two-thirds.
+The band height is `btn_h * 3 + gap_y * 2`. Reload with `#read sk.tin`
+(or restart) after changing.
 
 ## Scrolling
 
@@ -79,8 +83,8 @@ terminal's own scrollback. Scrolling is re-bound in
 
 - **Finger scroll (phone):** Termux delivers a finger drag as
   `SCROLLED MOUSE WHEEL UP` / `... DOWN` events, bound to
-  `#buffer up`/`down`. Adjust `scroll_lines` (default 3) for how many
-  lines move per wheel notch.
+  `#buffer up 3` / `#buffer down 3`. Edit the `3` to move more or fewer
+  lines per wheel notch.
 - **Keyboard:** PageUp / PageDown scroll, End jumps back to live output.
 - Scrolling up enables scroll-lock (new text is held); scroll back to the
   bottom, press End, or run `#buffer end` to return to the live feed.

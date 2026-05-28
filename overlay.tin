@@ -1,24 +1,25 @@
 #nop ============================================================
 #nop  overlay.tin - On-screen UI for sktintin.
 #nop
-#nop  The reserved top band is shared, left half tick / right half buttons:
+#nop  The reserved band is at the BOTTOM, just above the input line:
 #nop
-#nop    Next tick ~37 sec    +----+ +----+ +----+
-#nop    ##########____       | NW | |  N | | NE |
-#nop                         +----+ +----+ +----+
-#nop                         | W  |        |  E |
-#nop                         +----+ +----+ +----+
-#nop                         | SW | |  S | | SE |
-#nop    ------------------[ scrollback ]------------------
-#nop    >                                          (input)
+#nop    --------------------[ scrollback ]--------------------
+#nop    ###Next tick ~37 s###     +--+ +--+ +--+
+#nop                              |NW| | N| |NE|
+#nop    +---+ +---+ +---+ +---+   +--+ +--+ +--+
+#nop    | 1 | | 2 | | 3 | |Wo|..  | W| |Lk| | E|
+#nop    +---+ +---+ +---+ +---+   +--+ +--+ +--+
+#nop                              |SW| | S| |SE|
+#nop    >                                  (input)
 #nop
-#nop  TinTin++ gotchas this file works around:
-#nop   - #draw/#button SQUARE args drop bare $var coords inconsistently,
-#nop     so coordinates go through the ov_tile/ov_btn helpers as positional
-#nop     %1..%4 args (they arrive as literal numbers).
-#nop   - #nop comments must NOT contain a semicolon and must NOT live inside
-#nop     a braced alias body (a semicolon ends the comment and the rest runs
-#nop     as a command, e.g. gets sent to the MUD). Keep comments out here.
+#nop  Right ~1/3: 3x3 nav buttons (center = look). Left ~2/3: tick bar
+#nop  (top half, text embedded in the bar) over a 1/2/3/worth/score row.
+#nop
+#nop  TinTin++ gotchas worked around here:
+#nop   - #draw/#button SQUARE args drop bare $var coords, so coordinates go
+#nop     through the ov_tile/ov_btn helpers as positional %1..%4 args.
+#nop   - #nop comments must NOT contain a semicolon and must NOT sit inside
+#nop     a braced body (text after a semicolon would run / be sent to MUD).
 #nop ============================================================
 
 
@@ -26,17 +27,16 @@
 #nop  Section 0 - Geometry, split, draw helpers
 #nop ============================================================
 
-#nop Tap-target size for the nav buttons. Top band height derives from
-#nop these. Bump for bigger buttons or more spacing between them.
-#variable {btn_w} {6}
+#nop Tunables. btn_w is derived (right third of the screen). Set btn_h and
+#nop gaps for button height and spacing. Band height = btn_h*3 + gap_y*2.
 #variable {btn_h} {2}
 #variable {gap_x} {1}
 #variable {gap_y} {1}
+#variable {overlay_rows} {24}
 #variable {overlay_cols} {80}
-#variable {bcl1} {60}
 
-#math {band_top} {$btn_h * 3 + $gap_y * 2}
-#split $band_top 0
+#math {band_h} {$btn_h * 3 + $gap_y * 2}
+#split 0 $band_h
 
 #nop ov_tile: filled centered tile. Args %1 color %2 top %3 left %4 bottom
 #nop %5 right. Text comes from $ovtxt so it may contain spaces.
@@ -53,46 +53,104 @@
     #button {%1 %2 %3 %4} {%6};
 }
 
-
-#nop ============================================================
-#nop  Section 1 - Compass (8-direction nav buttons, top-right)
-#nop ============================================================
-
-#nop $vars resolve at the call site (reliable), reaching ov_btn as literal
-#nop %1..%4 so the buggy square parser never sees a $var.
-#alias {overlay_compass_render}
+#nop overlay_geom: compute all shared layout values into g* globals from
+#nop the current rows/cols. Called at the start of each render alias.
+#alias {overlay_geom}
 {
-    #math {bw3}  {$btn_w * 3 + $gap_x * 2};
-    #math {bcl1} {$overlay_cols - $bw3 + 1};
-    #math {bcl2} {$bcl1 + $btn_w + $gap_x};
-    #math {bcl3} {$bcl1 + 2 * ($btn_w + $gap_x)};
-    #math {bcr1} {$bcl1 + $btn_w - 1};
-    #math {bcr2} {$bcl2 + $btn_w - 1};
-    #math {bcr3} {$bcl3 + $btn_w - 1};
-    #math {brt1} {1};
-    #math {brt2} {1 + $btn_h + $gap_y};
-    #math {brt3} {1 + 2 * ($btn_h + $gap_y)};
-    #math {brb1} {$brt1 + $btn_h - 1};
-    #math {brb2} {$brt2 + $btn_h - 1};
-    #math {brb3} {$brt3 + $btn_h - 1};
-    ov_btn $brt1 $bcl1 $brb1 $bcr1 NW nw;
-    ov_btn $brt1 $bcl2 $brb1 $bcr2 N n;
-    ov_btn $brt1 $bcl3 $brb1 $bcr3 NE ne;
-    ov_btn $brt2 $bcl1 $brb2 $bcr1 W w;
-    ov_btn $brt2 $bcl3 $brb2 $bcr3 E e;
-    ov_btn $brt3 $bcl1 $brb3 $bcr1 SW sw;
-    ov_btn $brt3 $bcl2 $brb3 $bcr2 S s;
-    ov_btn $brt3 $bcl3 $brb3 $bcr3 SE se;
+    #math {gbh}   {$btn_h * 3 + $gap_y * 2};
+    #math {gtop}  {$overlay_rows - $gbh};
+    #math {gbot}  {$overlay_rows - 1};
+    #math {gthird} {$overlay_cols / 3};
+    #math {gbw}   {($gthird - 2 * $gap_x) / 3};
+    #if {$gbw < 2} {#variable {gbw} {2}};
+    #math {gcl1}  {$overlay_cols - ($gbw * 3 + $gap_x * 2) + 1};
+    #math {gcl2}  {$gcl1 + $gbw + $gap_x};
+    #math {gcl3}  {$gcl1 + 2 * ($gbw + $gap_x)};
+    #math {gcr1}  {$gcl1 + $gbw - 1};
+    #math {gcr2}  {$gcl2 + $gbw - 1};
+    #math {gcr3}  {$gcl3 + $gbw - 1};
+    #math {grt1}  {$gtop};
+    #math {grt2}  {$gtop + $btn_h + $gap_y};
+    #math {grt3}  {$gtop + 2 * ($btn_h + $gap_y)};
+    #math {grb1}  {$grt1 + $btn_h - 1};
+    #math {grb2}  {$grt2 + $btn_h - 1};
+    #math {grb3}  {$grt3 + $btn_h - 1};
+    #math {gleftw} {$gcl1 - 2};
+    #math {ghalf} {$gbh / 2};
+    #math {gtickb} {$gtop + $ghalf - 1};
+    #math {gxtop} {$gtop + $ghalf};
 }
 
 
 #nop ============================================================
-#nop  Section 2 - Tick timer (top-left, beside the buttons)
+#nop  Section 1 - Compass (9 nav buttons, right side, center = look)
+#nop ============================================================
+
+#alias {overlay_compass_render}
+{
+    overlay_geom;
+    ov_btn $grt1 $gcl1 $grb1 $gcr1 NW nw;
+    ov_btn $grt1 $gcl2 $grb1 $gcr2 N n;
+    ov_btn $grt1 $gcl3 $grb1 $gcr3 NE ne;
+    ov_btn $grt2 $gcl1 $grb2 $gcr1 W w;
+    ov_btn $grt2 $gcl2 $grb2 $gcr2 Lk look;
+    ov_btn $grt2 $gcl3 $grb2 $gcr3 E e;
+    ov_btn $grt3 $gcl1 $grb3 $gcr1 SW sw;
+    ov_btn $grt3 $gcl2 $grb3 $gcr2 S s;
+    ov_btn $grt3 $gcl3 $grb3 $gcr3 SE se;
+}
+
+
+#nop ============================================================
+#nop  Section 2 - Extra command buttons (left, bottom half)
+#nop  A row of: 1  2  3  worth  score  sleep/stand
+#nop
+#nop  The 6th button toggles: it shows + sends "sleep", then flips to
+#nop  show + send "stand", and back. rest_toggle sends the current state,
+#nop  flips it, then repaints the row to update the label.
+#nop ============================================================
+
+#variable {rest_state} {sleep}
+
+#alias {rest_toggle}
+{
+    $rest_state;
+    #if {"$rest_state" == "sleep"} {#variable {rest_state} {stand}} {#variable {rest_state} {sleep}};
+    overlay_extra_render;
+}
+
+#alias {overlay_extra_render}
+{
+    overlay_geom;
+    #math {gew} {$gleftw / 6};
+    #math {p1} {1};
+    #math {p2} {$gew + 1};
+    #math {p3} {$gew * 2 + 1};
+    #math {p4} {$gew * 3 + 1};
+    #math {p5} {$gew * 4 + 1};
+    #math {p6} {$gew * 5 + 1};
+    #math {q1} {$gew};
+    #math {q2} {$gew * 2};
+    #math {q3} {$gew * 3};
+    #math {q4} {$gew * 4};
+    #math {q5} {$gew * 5};
+    ov_btn $gxtop $p1 $gbot $q1 1 1;
+    ov_btn $gxtop $p2 $gbot $q2 2 2;
+    ov_btn $gxtop $p3 $gbot $q3 3 3;
+    ov_btn $gxtop $p4 $gbot $q4 worth worth;
+    ov_btn $gxtop $p5 $gbot $q5 score score;
+    ov_btn $gxtop $p6 $gbot $gleftw $rest_state rest_toggle;
+}
+
+
+#nop ============================================================
+#nop  Section 3 - Tick timer (left, top half, text inside the bar)
 #nop
 #nop  Ported from Mudlet skmudlet (ticktimer). 61-second wrap counter,
-#nop  +1 per second, reset to 0 when a tick is observed (Section 3).
-#nop  secstr is padded to a fixed width and the bar is a constant char
-#nop  count so redraws overwrite in place (no smear trail).
+#nop  +1 per second, reset to 0 when a tick is observed (Section 4).
+#nop  The bar is one color. The label sits centered in it and the filled
+#nop  portion uses solid blocks, the rest light blocks. Fixed widths so
+#nop  redraws overwrite in place (no smear).
 #nop ============================================================
 
 #variable {tick_time} {0}
@@ -100,23 +158,25 @@
 
 #alias {overlay_tick_render}
 {
-    #math {secs} {$tick_max - $tick_time};
-    #variable {secstr} {$secs};
-    #if {$secs < 10} {#variable {secstr} { $secs}};
-    #math {tend} {$bcl1 - 2};
-    #math {tmid} {$band_top / 2};
-    #math {tmd1} {$tmid + 1};
-    #math {barw} {$tend - 2};
-    #if {$barw < 4} {#variable {barw} {4}};
-    #math {bfil} {($tick_time * $barw) / $tick_max};
-    #math {bemp} {$barw - $bfil};
+    overlay_geom;
+    #math {tsec} {$tick_max - $tick_time};
+    #variable {tpad} {$tsec};
+    #if {$tsec < 10} {#variable {tpad} { $tsec}};
+    #variable {tlabel} {Next tick ~$tpad s};
+    #variable {tlw} {15};
+    #math {tbw} {$gleftw - 1};
+    #if {$tbw < $tlw} {#variable {tbw} {$tlw}};
+    #math {tls} {($tbw - $tlw) / 2};
+    #if {$tls < 0} {#variable {tls} {0}};
+    #math {trs} {$tbw - $tlw - $tls};
+    #if {$trs < 0} {#variable {trs} {0}};
+    #math {tf}  {($tick_time * $tbw) / $tick_max};
     #variable {tbar} {};
-    #if {$bfil > 0} {#loop {1} {$bfil} {x} {#variable {tbar} {$tbar█}}};
-    #if {$bemp > 0} {#loop {1} {$bemp} {x} {#variable {tbar} {$tbar░}}};
-    #variable {ovtxt} {Next tick ~$secstr sec};
-    ov_tile <fca> 1 1 $tmid $tend;
+    #if {$tls > 0} {#loop {1} {$tls} {i} {#if {$i <= $tf} {#variable {tbar} {$tbar█}} {#variable {tbar} {$tbar░}}}};
+    #variable {tbar} {$tbar$tlabel};
+    #if {$trs > 0} {#loop {1} {$trs} {j} {#math {tp} {$tls + $tlw + $j}; #if {$tp <= $tf} {#variable {tbar} {$tbar█}} {#variable {tbar} {$tbar░}}}};
     #variable {ovtxt} {$tbar};
-    ov_tile <afc> $tmd1 1 $band_top $tend;
+    ov_tile <fca> $gtop 1 $gtickb $gleftw;
 }
 
 #alias {tick_reset}
@@ -144,7 +204,7 @@
 
 
 #nop ============================================================
-#nop  Section 3 - Tick reset triggers
+#nop  Section 4 - Tick reset triggers
 #nop
 #nop  Hard reset (definitive tick markers - from Mudlet tick_echoes).
 #nop  Each line is one MUD output pattern, %1 = wildcard word.
@@ -223,7 +283,7 @@
 
 
 #nop ============================================================
-#nop  Section 4 - Scrollback control
+#nop  Section 5 - Scrollback control
 #nop
 #nop  #split puts TinTin++ in full-screen mode, disabling native scroll.
 #nop  Termux delivers a finger drag as mouse-wheel events.
@@ -240,15 +300,33 @@
 
 
 #nop ============================================================
-#nop  Section 5 - Resize handling and initial render
+#nop  Section 6 - Redraw, resize handling, initial render
 #nop ============================================================
 
-#event {SCREEN SIZE}       {#variable {overlay_cols} {%1}; overlay_compass_render; overlay_tick_render}
-#event {SCREEN RESIZE}     {#variable {overlay_cols} {%1}; overlay_compass_render; overlay_tick_render}
-#event {SESSION CONNECTED} {overlay_compass_render; overlay_tick_render}
+#nop redraw: type this to repaint the whole overlay. Re-pulls the current
+#nop screen size, re-applies the split, clears, and renders every element.
+#nop Use it after a resize that left visual artifacts.
+#alias {redraw}
+{
+    #screen {get} {ROWS} {overlay_rows};
+    #screen {get} {COLS} {overlay_cols};
+    #math {band_h} {$btn_h * 3 + $gap_y * 2};
+    #split 0 $band_h;
+    #screen {clear} {all};
+    overlay_compass_render;
+    overlay_extra_render;
+    overlay_tick_render;
+    #screen {refresh};
+}
 
-#nop Pull current width up front - events correct it if it changes.
+#event {SCREEN SIZE}       {#variable {overlay_rows} {%0}; #variable {overlay_cols} {%1}; overlay_compass_render; overlay_extra_render; overlay_tick_render}
+#event {SCREEN RESIZE}     {#variable {overlay_rows} {%0}; #variable {overlay_cols} {%1}; overlay_compass_render; overlay_extra_render; overlay_tick_render}
+#event {SESSION CONNECTED} {overlay_compass_render; overlay_extra_render; overlay_tick_render}
+
+#nop Pull current size up front - events correct it if it changes.
+#screen {get} {ROWS} {overlay_rows}
 #screen {get} {COLS} {overlay_cols}
 
 overlay_compass_render
+overlay_extra_render
 overlay_tick_render
