@@ -1,8 +1,7 @@
 #nop ============================================================
 #nop  overlay.tin - On-screen UI for sktintin.
 #nop
-#nop  This file owns the screen split. The reserved top band is shared:
-#nop    LEFT  half = tick timer        RIGHT half = 3x3 nav buttons
+#nop  The reserved top band is shared, left half tick / right half buttons:
 #nop
 #nop    Next tick ~37 sec    +----+ +----+ +----+
 #nop    ##########____       | NW | |  N | | NE |
@@ -13,11 +12,13 @@
 #nop    ------------------[ scrollback ]------------------
 #nop    >                                          (input)
 #nop
-#nop  IMPORTANT TinTin++ quirk: #draw / #button SQUARE arguments do NOT
-#nop  reliably substitute bare $vars (some are dropped, e.g. $y0 stays
-#nop  literal -> "INVALID SQUARE"). So coordinates are passed through the
-#nop  ov_tile / ov_btn helpers as positional %1..%4 args, which arrive as
-#nop  literal numbers. #math and #draw TEXT handle $vars fine.
+#nop  TinTin++ gotchas this file works around:
+#nop   - #draw/#button SQUARE args drop bare $var coords inconsistently,
+#nop     so coordinates go through the ov_tile/ov_btn helpers as positional
+#nop     %1..%4 args (they arrive as literal numbers).
+#nop   - #nop comments must NOT contain a semicolon and must NOT live inside
+#nop     a braced alias body (a semicolon ends the comment and the rest runs
+#nop     as a command, e.g. gets sent to the MUD). Keep comments out here.
 #nop ============================================================
 
 
@@ -25,8 +26,8 @@
 #nop  Section 0 - Geometry, split, draw helpers
 #nop ============================================================
 
-#nop Tap-target size for the nav buttons (right side). Top band height
-#nop is derived from these. Bump for bigger buttons / more spacing.
+#nop Tap-target size for the nav buttons. Top band height derives from
+#nop these. Bump for bigger buttons or more spacing between them.
 #variable {btn_w} {6}
 #variable {btn_h} {2}
 #variable {gap_x} {1}
@@ -37,16 +38,15 @@
 #math {band_top} {$btn_h * 3 + $gap_y * 2}
 #split $band_top 0
 
-#nop Draw a filled, centered tile. Args: %1 color %2 top %3 left
-#nop %4 bottom %5 right ; text comes from the $ovtxt variable so it can
-#nop contain spaces. Coordinates are literal here (no $var in the square).
+#nop ov_tile: filled centered tile. Args %1 color %2 top %3 left %4 bottom
+#nop %5 right. Text comes from $ovtxt so it may contain spaces.
 #alias {ov_tile}
 {
     #draw %1 CALIGN tile %2 %3 %4 %5 {$ovtxt};
 }
 
-#nop Draw a button tile + bind its click region.
-#nop Args: %1 top %2 left %3 bottom %4 right %5 label %6 command
+#nop ov_btn: button tile plus click region. Args %1 top %2 left %3 bottom
+#nop %4 right %5 label %6 command.
 #alias {ov_btn}
 {
     #draw <074> CALIGN tile %1 %2 %3 %4 {%5};
@@ -58,6 +58,8 @@
 #nop  Section 1 - Compass (8-direction nav buttons, top-right)
 #nop ============================================================
 
+#nop $vars resolve at the call site (reliable), reaching ov_btn as literal
+#nop %1..%4 so the buggy square parser never sees a $var.
 #alias {overlay_compass_render}
 {
     #math {bw3}  {$btn_w * 3 + $gap_x * 2};
@@ -73,9 +75,6 @@
     #math {brb1} {$brt1 + $btn_h - 1};
     #math {brb2} {$brt2 + $btn_h - 1};
     #math {brb3} {$brt3 + $btn_h - 1};
-
-    #nop top/left/bottom/right label cmd -- $vars resolve at THIS call
-    #nop site (reliable), arriving in ov_btn as literal %1..%4.
     ov_btn $brt1 $bcl1 $brb1 $bcr1 NW nw;
     ov_btn $brt1 $bcl2 $brb1 $bcr2 N n;
     ov_btn $brt1 $bcl3 $brb1 $bcr3 NE ne;
@@ -90,10 +89,10 @@
 #nop ============================================================
 #nop  Section 2 - Tick timer (top-left, beside the buttons)
 #nop
-#nop  Ported from Mudlet skmudlet (Triggers/ticktimer + Timers).
-#nop  61-second wrap counter, +1 per second; reset to 0 when a tick is
-#nop  observed (Section 3). Wraps so the display stays sane if a reset
-#nop  trigger is missed.
+#nop  Ported from Mudlet skmudlet (ticktimer). 61-second wrap counter,
+#nop  +1 per second, reset to 0 when a tick is observed (Section 3).
+#nop  secstr is padded to a fixed width and the bar is a constant char
+#nop  count so redraws overwrite in place (no smear trail).
 #nop ============================================================
 
 #variable {tick_time} {0}
@@ -101,24 +100,19 @@
 
 #alias {overlay_tick_render}
 {
-    #math {secs}  {$tick_max - $tick_time};
-    #nop Pad to fixed 2-char width; a changing number width shifts the
-    #nop bar and leaves a smear trail since #draw only writes its cells.
+    #math {secs} {$tick_max - $tick_time};
     #variable {secstr} {$secs};
     #if {$secs < 10} {#variable {secstr} { $secs}};
-    #math {tend}  {$bcl1 - 2};
-    #math {tmid}  {$band_top / 2};
-    #math {tmd1}  {$tmid + 1};
-    #math {barw}  {$tend - 2};
+    #math {tend} {$bcl1 - 2};
+    #math {tmid} {$band_top / 2};
+    #math {tmd1} {$tmid + 1};
+    #math {barw} {$tend - 2};
     #if {$barw < 4} {#variable {barw} {4}};
-    #math {bfil}  {($tick_time * $barw) / $tick_max};
-    #math {bemp}  {$barw - $bfil};
-
+    #math {bfil} {($tick_time * $barw) / $tick_max};
+    #math {bemp} {$barw - $bfil};
     #variable {tbar} {};
     #if {$bfil > 0} {#loop {1} {$bfil} {x} {#variable {tbar} {$tbar█}}};
     #if {$bemp > 0} {#loop {1} {$bemp} {x} {#variable {tbar} {$tbar░}}};
-
-    #nop line(s) 1..tmid: the countdown ; rows tmd1..band_top: the bar.
     #variable {ovtxt} {Next tick ~$secstr sec};
     ov_tile <fca> 1 1 $tmid $tend;
     #variable {ovtxt} {$tbar};
@@ -131,15 +125,15 @@
     overlay_tick_render;
 }
 
-#nop Weather messages only re-anchor near a tick boundary (matches the
-#nop Mudlet weather_messages trigger).
+#nop Weather messages only re-anchor near a tick boundary (Mudlet's
+#nop weather_messages trigger uses the same guard).
 #alias {tick_weather_reset}
 {
     #if {$tick_time >= 55 || $tick_time <= 5} {tick_reset};
 }
 
-#nop #unticker first so reloading sk.tin doesn't stack tickers (which
-#nop would make the counter run several times per second).
+#nop #unticker first so reloading sk.tin does not stack tickers (which
+#nop would advance the counter several times per second).
 #unticker {tick_update}
 #ticker {tick_update}
 {
@@ -153,7 +147,7 @@
 #nop  Section 3 - Tick reset triggers
 #nop
 #nop  Hard reset (definitive tick markers - from Mudlet tick_echoes).
-#nop  Each line is one MUD output pattern; %1 = wildcard word.
+#nop  Each line is one MUD output pattern, %1 = wildcard word.
 #nop ============================================================
 
 #action {You are hungry.}                                  {tick_reset}
@@ -189,7 +183,7 @@
 #action {A ruddy pebble on a chain worn by %1 glows red momentarily.}                 {tick_reset}
 #action {The ether wire phases partially out of existence.} {tick_reset}
 
-#nop ---- Soft reset: weather messages, only near tick boundaries.
+#nop Soft reset - weather messages, only near tick boundaries.
 #action {It's breezy.}                                     {tick_weather_reset}
 #action {It's hot out here.}                               {tick_weather_reset}
 #action {It's cold!}                                       {tick_weather_reset}
@@ -233,13 +227,13 @@
 #nop
 #nop  #split puts TinTin++ in full-screen mode, disabling native scroll.
 #nop  Termux delivers a finger drag as mouse-wheel events.
-#nop  (If "#buffer up 3" errors on the count, change it to "#buffer up".)
+#nop  If "#buffer up 3" errors on the count, change it to "#buffer up".
 #nop ============================================================
 
 #event {SCROLLED MOUSE WHEEL UP}   {#buffer up 3}
 #event {SCROLLED MOUSE WHEEL DOWN} {#buffer down 3}
 
-#nop Keyboard fallback: PageUp / PageDown scroll, End returns to live.
+#nop Keyboard fallback - PageUp / PageDown scroll, End returns to live.
 #macro {\e[5~} {#buffer up}
 #macro {\e[6~} {#buffer down}
 #macro {\e[F}  {#buffer end}
@@ -253,7 +247,7 @@
 #event {SCREEN RESIZE}     {#variable {overlay_cols} {%1}; overlay_compass_render; overlay_tick_render}
 #event {SESSION CONNECTED} {overlay_compass_render; overlay_tick_render}
 
-#nop Pull current width up front (events correct it if it changes).
+#nop Pull current width up front - events correct it if it changes.
 #screen {get} {COLS} {overlay_cols}
 
 overlay_compass_render
