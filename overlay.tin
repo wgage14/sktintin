@@ -1,53 +1,86 @@
 #nop ============================================================
 #nop  overlay.tin - On-screen UI for sktintin.
 #nop
-#nop  Layout (split rows reserved in sk.tin via `#split 3 1`):
+#nop  This file owns the screen split (top = compass, bottom = tick).
+#nop  Layout, anchored to the top-right for portrait play:
 #nop
-#nop          NW   N  NE          rows 1-3, anchored top-right
-#nop           W  ( )  E
-#nop          SW   S  SE
-#nop      --[ scrollback ]--
-#nop      Tick ~37s [###....]     row -2 (bottom status bar)
-#nop      >                       row -1 (input)
+#nop      +----+ +----+ +----+
+#nop      | NW | |  N | | NE |   <- 3x3 button grid, each btn_w x btn_h
+#nop      +----+ +----+ +----+
+#nop      | W  | |  + | |  E |
+#nop      +----+ +----+ +----+
+#nop      | SW | |  S | | SE |
+#nop      +----+ +----+ +----+
+#nop      --------[ scrollback ]--------
+#nop      Next tick in ~37 sec  ########____   <- row -2 (status)
+#nop      >                                     <- row -1 (input)
 #nop
-#nop  Mouse tracking is enabled in sk.tin so taps register as
-#nop  left-clicks and fire #button regions.
+#nop  Button size/spacing is tunable via the geometry vars below.
+#nop  Mouse tracking is enabled in sk.tin so taps fire #button regions.
 #nop ============================================================
+
+
+#nop ============================================================
+#nop  Section 0 - Geometry + screen split
+#nop ============================================================
+
+#nop Tap-target size. Bump btn_w/btn_h for bigger buttons, gap_* for
+#nop more space between them. Top split height is derived from these.
+#variable {btn_w} {6}
+#variable {btn_h} {2}
+#variable {gap_x} {2}
+#variable {gap_y} {1}
+#variable {overlay_cols} {80}
+
+#math {compass_top} {$btn_h * 3 + $gap_y * 2}
+#split $compass_top 1
 
 
 #nop ============================================================
 #nop  Section 1 - Compass (8-direction tap pad, top-right)
 #nop ============================================================
 
-#variable {overlay_cols} {80}
-
 #alias {overlay_compass_render}
 {
-    #math {c0}  {$overlay_cols - 10};
-    #math {c2}  {$c0 + 2};
-    #math {c4}  {$c0 + 4};
-    #math {c6}  {$c0 + 6};
-    #math {c8}  {$c0 + 8};
-    #math {c10} {$c0 + 10};
+    #math {block_w} {$btn_w * 3 + $gap_x * 2};
+    #math {cs}      {$overlay_cols - $block_w + 1};
 
-    #draw tile 1 $c0  1 $c2  {<bcb>NW};
-    #draw tile 1 $c4  1 $c6  {<bcb> N};
-    #draw tile 1 $c8  1 $c10 {<bcb>NE};
-    #draw tile 2 $c0  2 $c2  {<bcb> W};
-    #draw tile 2 $c4  2 $c6  {<inf> *};
-    #draw tile 2 $c8  2 $c10 {<bcb> E};
-    #draw tile 3 $c0  3 $c2  {<bcb>SW};
-    #draw tile 3 $c4  3 $c6  {<bcb> S};
-    #draw tile 3 $c8  3 $c10 {<bcb>SE};
+    #nop column starts (x0..x2) and ends (x0e..x2e)
+    #math {x0}  {$cs};
+    #math {x1}  {$cs + $btn_w + $gap_x};
+    #math {x2}  {$cs + 2 * ($btn_w + $gap_x)};
+    #math {x0e} {$x0 + $btn_w - 1};
+    #math {x1e} {$x1 + $btn_w - 1};
+    #math {x2e} {$x2 + $btn_w - 1};
 
-    #button {1 $c0 1 $c2}   {nw};
-    #button {1 $c4 1 $c6}   {n};
-    #button {1 $c8 1 $c10}  {ne};
-    #button {2 $c0 2 $c2}   {w};
-    #button {2 $c8 2 $c10}  {e};
-    #button {3 $c0 3 $c2}   {sw};
-    #button {3 $c4 3 $c6}   {s};
-    #button {3 $c8 3 $c10}  {se};
+    #nop row starts (y0..y2) and ends (y0e..y2e)
+    #math {y0}  {1};
+    #math {y1}  {1 + $btn_h + $gap_y};
+    #math {y2}  {1 + 2 * ($btn_h + $gap_y)};
+    #math {y0e} {$y0 + $btn_h - 1};
+    #math {y1e} {$y1 + $btn_h - 1};
+    #math {y2e} {$y2 + $btn_h - 1};
+
+    #nop draw cells: white-on-blue buttons, centered label
+    #draw <074> CALIGN tile $y0 $x0 $y0e $x0e {NW};
+    #draw <074> CALIGN tile $y0 $x1 $y0e $x1e {N};
+    #draw <074> CALIGN tile $y0 $x2 $y0e $x2e {NE};
+    #draw <074> CALIGN tile $y1 $x0 $y1e $x0e {W};
+    #draw <034> CALIGN tile $y1 $x1 $y1e $x1e {+};
+    #draw <074> CALIGN tile $y1 $x2 $y1e $x2e {E};
+    #draw <074> CALIGN tile $y2 $x0 $y2e $x0e {SW};
+    #draw <074> CALIGN tile $y2 $x1 $y2e $x1e {S};
+    #draw <074> CALIGN tile $y2 $x2 $y2e $x2e {SE};
+
+    #nop clickable regions (taps -> direction commands)
+    #button {$y0 $x0 $y0e $x0e} {nw};
+    #button {$y0 $x1 $y0e $x1e} {n};
+    #button {$y0 $x2 $y0e $x2e} {ne};
+    #button {$y1 $x0 $y1e $x0e} {w};
+    #button {$y1 $x2 $y1e $x2e} {e};
+    #button {$y2 $x0 $y2e $x0e} {sw};
+    #button {$y2 $x1 $y2e $x1e} {s};
+    #button {$y2 $x2 $y2e $x2e} {se};
 }
 
 
@@ -63,7 +96,7 @@
 
 #variable {tick_time}      {0}
 #variable {tick_max}       {61}
-#variable {tick_bar_width} {20}
+#variable {tick_bar_width} {16}
 
 #alias {overlay_tick_render}
 {
@@ -71,11 +104,13 @@
     #math {bar_fill}  {($tick_time * $tick_bar_width) / $tick_max};
     #math {bar_empty} {$tick_bar_width - $bar_fill};
 
+    #nop Build a block-character bar: full blocks fill toward the tick.
     #variable {bar} {};
-    #loop {1} {$bar_fill}  {x} {#variable {bar} {$bar#}};
-    #loop {1} {$bar_empty} {x} {#variable {bar} {$bar.}};
+    #if {$bar_fill  > 0} {#loop {1} {$bar_fill}  {x} {#variable {bar} {$bar█}}};
+    #if {$bar_empty > 0} {#loop {1} {$bar_empty} {x} {#variable {bar} {$bar░}}};
 
-    #draw tile -2 1 -2 -1 {<inf>Tick ~$tick_left""s [$bar]};
+    #nop Space before "sec" delimits the variable (avoids the $var+text trap).
+    #draw <fca> tile -2 1 -2 -1 { Next tick in ~$tick_left sec  $bar};
 }
 
 #alias {tick_reset}
@@ -179,7 +214,32 @@
 
 
 #nop ============================================================
-#nop  Section 4 - Resize handling and initial render
+#nop  Section 4 - Scrollback control
+#nop
+#nop  In split mode TinTin++ owns the screen, so the terminal's native
+#nop  scroll is disabled. Re-bind scrolling to the #buffer command.
+#nop  `#buffer up/down` page the scrollback; `#buffer end` returns to live.
+#nop ============================================================
+
+#nop --- Touchscreen swipe (Termux). %0 = direction string. The exact
+#nop --- spelling varies, so we accept common variants. To discover the
+#nop --- real value on your device run `#config {mouse info} {on}` and
+#nop --- swipe once; then trim these to whatever fires.
+#event {SWIPED}
+{
+    #if {"%0" == "down" || "%0" == "DOWN" || "%0" == "d"} {#buffer up};
+    #if {"%0" == "up"   || "%0" == "UP"   || "%0" == "u"} {#buffer down};
+}
+
+#nop --- Keyboard fallback (also handy when testing on desktop).
+#nop PageUp / PageDown scroll; End jumps back to the live feed.
+#macro {\e[5~} {#buffer up}
+#macro {\e[6~} {#buffer down}
+#macro {\e[F}  {#buffer end}
+
+
+#nop ============================================================
+#nop  Section 5 - Resize handling and initial render
 #nop ============================================================
 
 #event {SCREEN SIZE}       {#variable {overlay_cols} {%1}; overlay_compass_render; overlay_tick_render}

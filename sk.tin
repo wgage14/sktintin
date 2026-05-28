@@ -11,12 +11,8 @@
 #config {CONNECT RETRY}  {0}
 #config {MOUSE TRACKING} {ON}
 
-#nop ---- screen layout ----
-#nop Reserve 3 rows at the top (compass) and 1 at the bottom (tick).
-#nop Last arg defaults to 1 = one-line input bar below the tick row.
-#split 3 1
-
 #nop ---- modules ----
+#nop overlay.tin owns the screen split (top height depends on button size).
 #read {events.tin}
 #read {overlay.tin}
 

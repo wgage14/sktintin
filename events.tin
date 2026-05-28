@@ -10,17 +10,17 @@
 #event {SESSION CONNECTED}
 {
     #format {ts} {%t} {%Y-%m-%d %H:%M:%S};
-    #showme {<grn>[$ts] CONNECTED     %0 -> %1:%3};
+    #showme {<120>[$ts] CONNECTED     %0 -> %1:%3};
 }
 
 #event {SESSION DISCONNECTED}
 {
     #format {ts} {%t} {%Y-%m-%d %H:%M:%S};
-    #showme {<red>[$ts] DISCONNECTED  %0 from %1:%3};
+    #showme {<110>[$ts] DISCONNECTED  %0 from %1:%3};
 }
 
 #event {SESSION TIMED OUT}
 {
     #format {ts} {%t} {%Y-%m-%d %H:%M:%S};
-    #showme {<yel>[$ts] TIMED OUT     %0 from %1:%3};
+    #showme {<130>[$ts] TIMED OUT     %0 from %1:%3};
 }
