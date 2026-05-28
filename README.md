@@ -12,18 +12,18 @@ required on mobile.
 - **Timestamped connect/disconnect events** — every `SESSION CONNECTED`,
   `SESSION DISCONNECTED`, and `SESSION TIMED OUT` is printed in-session
   with a `YYYY-MM-DD HH:MM:SS` prefix. See [events.tin](events.tin).
-- **8-direction tap compass** pinned to the upper-right corner, sized
-  for portrait play. Taps map to `n / ne / e / se / s / sw / w / nw`.
+- **8-direction tap compass** in the upper-right of the reserved top band,
+  sized for portrait play. Taps map to `n / ne / e / se / s / sw / w / nw`.
   Button size and spacing are tunable (see below).
-- **Tick timer** along the bottom status row: `Next tick in ~37 sec`
-  with a block-character progress bar that fills as the tick approaches.
+- **Tick timer** in the upper-left of the same top band: `Next tick ~37 sec`
+  over a block-character progress bar that fills as the tick approaches.
   Increments once per second; ~70 trigger patterns re-anchor it to 0 when
   a tick is observed (regen, hunger, weather, etc.). Weather messages only
   re-anchor near tick boundaries (within 5s) since they're unreliable
   mid-tick. Logic ported from the Mudlet `skmudlet` profile's `ticktimer`
   trigger group.
-- **Scrollback via swipe / keyboard** — because the split takes over the
-  screen, native terminal scroll is disabled and re-bound to `#buffer`
+- **Scrollback via finger scroll / keyboard** — because the split takes over
+  the screen, native terminal scroll is disabled and re-bound to `#buffer`
   (see Scrolling below).
 
 Both UI elements live in [overlay.tin](overlay.tin).
@@ -34,37 +34,42 @@ Both UI elements live in [overlay.tin](overlay.tin).
 |---|---|
 | [sk.tin](sk.tin) | Entry point. Sets config, loads modules, opens the session. |
 | [events.tin](events.tin) | Connect / disconnect / timeout timestamping. |
-| [overlay.tin](overlay.tin) | Owns the screen split. Top-right compass + bottom-row tick timer + scrollback bindings (`#draw` + `#button` + `#ticker` + `#action`). |
+| [overlay.tin](overlay.tin) | Owns the screen split. Top-left tick timer + top-right compass + scrollback bindings (`#draw` + `#button` + `#ticker` + `#action`). |
 
 ## Screen layout
 
+The `#split` reserves one band at the top, shared left/right:
+
 ```
- +----+ +----+ +----+
- | NW | |  N | | NE |   <- compass: 3x3 grid, top-right
- +----+ +----+ +----+      (rows reserved by #split in overlay.tin)
- | W  | |  + | |  E |
- +----+ +----+ +----+
- | SW | |  S | | SE |
- +----+ +----+ +----+
- ------[ scrollback ]------
- Next tick in ~37 sec  ########____   <- row -2 (status)
- >                                     <- row -1 (input)
+ Next tick ~37 sec      +----+ +----+ +----+
+ ##########____         | NW | |  N | | NE |
+                        +----+ +----+ +----+
+                        | W  |        |  E |
+                        +----+ +----+ +----+
+                        | SW | |  S | | SE |
+ -----------------[ scrollback ]-----------------
+ >                                        (input)
 ```
+
+Coordinates are passed to `#draw`/`#button` through helper aliases
+(`ov_tile` / `ov_btn`) as positional `%1..%4` args. This is deliberate:
+those commands' square parsing drops bare `$var` coordinates
+inconsistently, so the helpers hand them literal numbers instead.
 
 ## Tuning button size
 
 Edit the geometry vars at the top of [overlay.tin](overlay.tin):
 
 ```
-#variable {btn_w} {6}   ;; button width  (columns)
-#variable {btn_h} {2}   ;; button height (rows)
-#variable {gap_x} {2}   ;; horizontal gap between buttons
-#variable {gap_y} {1}   ;; vertical gap between buttons
+#variable {btn_w} {6}   #nop button width  (columns)
+#variable {btn_h} {2}   #nop button height (rows)
+#variable {gap_x} {1}   #nop horizontal gap between buttons
+#variable {gap_y} {1}   #nop vertical gap between buttons
 ```
 
-The top split height is derived automatically (`btn_h * 3 + gap_y * 2`),
-so bigger buttons reserve more rows up top. Reload with `#read sk.tin`
-(or restart) after changing these.
+The top band height is derived automatically (`btn_h * 3 + gap_y * 2`),
+so bigger buttons reserve more rows up top (and give the tick timer more
+room on the left). Reload with `#read sk.tin` (or restart) after changing.
 
 ## Scrolling
 

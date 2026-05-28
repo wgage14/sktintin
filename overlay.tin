@@ -1,117 +1,128 @@
 #nop ============================================================
 #nop  overlay.tin - On-screen UI for sktintin.
 #nop
-#nop  This file owns the screen split (top = compass, bottom = tick).
-#nop  Layout, anchored to the top-right for portrait play:
+#nop  This file owns the screen split. The reserved top band is shared:
+#nop    LEFT  half = tick timer        RIGHT half = 3x3 nav buttons
 #nop
-#nop      +----+ +----+ +----+
-#nop      | NW | |  N | | NE |   <- 3x3 button grid, each btn_w x btn_h
-#nop      +----+ +----+ +----+
-#nop      | W  | |  + | |  E |
-#nop      +----+ +----+ +----+
-#nop      | SW | |  S | | SE |
-#nop      +----+ +----+ +----+
-#nop      --------[ scrollback ]--------
-#nop      Next tick in ~37 sec  ########____   <- row -2 (status)
-#nop      >                                     <- row -1 (input)
+#nop    Next tick ~37 sec    +----+ +----+ +----+
+#nop    ##########____       | NW | |  N | | NE |
+#nop                         +----+ +----+ +----+
+#nop                         | W  |        |  E |
+#nop                         +----+ +----+ +----+
+#nop                         | SW | |  S | | SE |
+#nop    ------------------[ scrollback ]------------------
+#nop    >                                          (input)
 #nop
-#nop  Button size/spacing is tunable via the geometry vars below.
-#nop  Mouse tracking is enabled in sk.tin so taps fire #button regions.
+#nop  IMPORTANT TinTin++ quirk: #draw / #button SQUARE arguments do NOT
+#nop  reliably substitute bare $vars (some are dropped, e.g. $y0 stays
+#nop  literal -> "INVALID SQUARE"). So coordinates are passed through the
+#nop  ov_tile / ov_btn helpers as positional %1..%4 args, which arrive as
+#nop  literal numbers. #math and #draw TEXT handle $vars fine.
 #nop ============================================================
 
 
 #nop ============================================================
-#nop  Section 0 - Geometry + screen split
+#nop  Section 0 - Geometry, split, draw helpers
 #nop ============================================================
 
-#nop Tap-target size. Bump btn_w/btn_h for bigger buttons, gap_* for
-#nop more space between them. Top split height is derived from these.
+#nop Tap-target size for the nav buttons (right side). Top band height
+#nop is derived from these. Bump for bigger buttons / more spacing.
 #variable {btn_w} {6}
 #variable {btn_h} {2}
-#variable {gap_x} {2}
+#variable {gap_x} {1}
 #variable {gap_y} {1}
 #variable {overlay_cols} {80}
+#variable {bcl1} {60}
 
-#math {compass_top} {$btn_h * 3 + $gap_y * 2}
-#split $compass_top 1
+#math {band_top} {$btn_h * 3 + $gap_y * 2}
+#split $band_top 0
 
-
-#nop ============================================================
-#nop  Section 1 - Compass (8-direction tap pad, top-right)
-#nop ============================================================
-
-#alias {overlay_compass_render}
+#nop Draw a filled, centered tile. Args: %1 color %2 top %3 left
+#nop %4 bottom %5 right ; text comes from the $ovtxt variable so it can
+#nop contain spaces. Coordinates are literal here (no $var in the square).
+#alias {ov_tile}
 {
-    #math {block_w} {$btn_w * 3 + $gap_x * 2};
-    #math {cs}      {$overlay_cols - $block_w + 1};
+    #draw %1 CALIGN tile %2 %3 %4 %5 {$ovtxt};
+}
 
-    #nop column starts (x0..x2) and ends (x0e..x2e)
-    #math {x0}  {$cs};
-    #math {x1}  {$cs + $btn_w + $gap_x};
-    #math {x2}  {$cs + 2 * ($btn_w + $gap_x)};
-    #math {x0e} {$x0 + $btn_w - 1};
-    #math {x1e} {$x1 + $btn_w - 1};
-    #math {x2e} {$x2 + $btn_w - 1};
-
-    #nop row starts (y0..y2) and ends (y0e..y2e)
-    #math {y0}  {1};
-    #math {y1}  {1 + $btn_h + $gap_y};
-    #math {y2}  {1 + 2 * ($btn_h + $gap_y)};
-    #math {y0e} {$y0 + $btn_h - 1};
-    #math {y1e} {$y1 + $btn_h - 1};
-    #math {y2e} {$y2 + $btn_h - 1};
-
-    #nop draw cells: white-on-blue buttons, centered label.
-    #nop ${var} delimiting is required here -- #draw/#button square parsing
-    #nop mishandles bare $var boundaries (drops some, e.g. $y0 -> literal).
-    #draw <074> CALIGN tile ${y0} ${x0} ${y0e} ${x0e} {NW};
-    #draw <074> CALIGN tile ${y0} ${x1} ${y0e} ${x1e} {N};
-    #draw <074> CALIGN tile ${y0} ${x2} ${y0e} ${x2e} {NE};
-    #draw <074> CALIGN tile ${y1} ${x0} ${y1e} ${x0e} {W};
-    #draw <034> CALIGN tile ${y1} ${x1} ${y1e} ${x1e} {+};
-    #draw <074> CALIGN tile ${y1} ${x2} ${y1e} ${x2e} {E};
-    #draw <074> CALIGN tile ${y2} ${x0} ${y2e} ${x0e} {SW};
-    #draw <074> CALIGN tile ${y2} ${x1} ${y2e} ${x1e} {S};
-    #draw <074> CALIGN tile ${y2} ${x2} ${y2e} ${x2e} {SE};
-
-    #nop clickable regions (taps -> direction commands)
-    #button {${y0} ${x0} ${y0e} ${x0e}} {nw};
-    #button {${y0} ${x1} ${y0e} ${x1e}} {n};
-    #button {${y0} ${x2} ${y0e} ${x2e}} {ne};
-    #button {${y1} ${x0} ${y1e} ${x0e}} {w};
-    #button {${y1} ${x2} ${y1e} ${x2e}} {e};
-    #button {${y2} ${x0} ${y2e} ${x0e}} {sw};
-    #button {${y2} ${x1} ${y2e} ${x1e}} {s};
-    #button {${y2} ${x2} ${y2e} ${x2e}} {se};
+#nop Draw a button tile + bind its click region.
+#nop Args: %1 top %2 left %3 bottom %4 right %5 label %6 command
+#alias {ov_btn}
+{
+    #draw <074> CALIGN tile %1 %2 %3 %4 {%5};
+    #button {%1 %2 %3 %4} {%6};
 }
 
 
 #nop ============================================================
-#nop  Section 2 - Tick timer (bottom status row)
-#nop
-#nop  Ported from Mudlet skmudlet (Triggers/ticktimer + Timers).
-#nop  Model: 61-second wrap counter. Increments once per second;
-#nop  trigger patterns below reset it to 0 when a tick is observed.
-#nop  Counter wraps at 61 so the display stays sane if reset
-#nop  triggers miss a tick.
+#nop  Section 1 - Compass (8-direction nav buttons, top-right)
 #nop ============================================================
 
-#variable {tick_time}      {0}
-#variable {tick_max}       {61}
-#variable {tick_bar_width} {16}
+#alias {overlay_compass_render}
+{
+    #math {bw3}  {$btn_w * 3 + $gap_x * 2};
+    #math {bcl1} {$overlay_cols - $bw3 + 1};
+    #math {bcl2} {$bcl1 + $btn_w + $gap_x};
+    #math {bcl3} {$bcl1 + 2 * ($btn_w + $gap_x)};
+    #math {bcr1} {$bcl1 + $btn_w - 1};
+    #math {bcr2} {$bcl2 + $btn_w - 1};
+    #math {bcr3} {$bcl3 + $btn_w - 1};
+    #math {brt1} {1};
+    #math {brt2} {1 + $btn_h + $gap_y};
+    #math {brt3} {1 + 2 * ($btn_h + $gap_y)};
+    #math {brb1} {$brt1 + $btn_h - 1};
+    #math {brb2} {$brt2 + $btn_h - 1};
+    #math {brb3} {$brt3 + $btn_h - 1};
+
+    #nop top/left/bottom/right label cmd -- $vars resolve at THIS call
+    #nop site (reliable), arriving in ov_btn as literal %1..%4.
+    ov_btn $brt1 $bcl1 $brb1 $bcr1 NW nw;
+    ov_btn $brt1 $bcl2 $brb1 $bcr2 N n;
+    ov_btn $brt1 $bcl3 $brb1 $bcr3 NE ne;
+    ov_btn $brt2 $bcl1 $brb2 $bcr1 W w;
+    ov_btn $brt2 $bcl3 $brb2 $bcr3 E e;
+    ov_btn $brt3 $bcl1 $brb3 $bcr1 SW sw;
+    ov_btn $brt3 $bcl2 $brb3 $bcr2 S s;
+    ov_btn $brt3 $bcl3 $brb3 $bcr3 SE se;
+}
+
+
+#nop ============================================================
+#nop  Section 2 - Tick timer (top-left, beside the buttons)
+#nop
+#nop  Ported from Mudlet skmudlet (Triggers/ticktimer + Timers).
+#nop  61-second wrap counter, +1 per second; reset to 0 when a tick is
+#nop  observed (Section 3). Wraps so the display stays sane if a reset
+#nop  trigger is missed.
+#nop ============================================================
+
+#variable {tick_time} {0}
+#variable {tick_max}  {61}
 
 #alias {overlay_tick_render}
 {
-    #math {tick_left} {$tick_max - $tick_time};
-    #math {bar_fill}  {($tick_time * $tick_bar_width) / $tick_max};
-    #math {bar_empty} {$tick_bar_width - $bar_fill};
+    #math {secs}  {$tick_max - $tick_time};
+    #nop Pad to fixed 2-char width; a changing number width shifts the
+    #nop bar and leaves a smear trail since #draw only writes its cells.
+    #variable {secstr} {$secs};
+    #if {$secs < 10} {#variable {secstr} { $secs}};
+    #math {tend}  {$bcl1 - 2};
+    #math {tmid}  {$band_top / 2};
+    #math {tmd1}  {$tmid + 1};
+    #math {barw}  {$tend - 2};
+    #if {$barw < 4} {#variable {barw} {4}};
+    #math {bfil}  {($tick_time * $barw) / $tick_max};
+    #math {bemp}  {$barw - $bfil};
 
-    #nop Build a block-character bar: full blocks fill toward the tick.
-    #variable {bar} {};
-    #if {$bar_fill  > 0} {#loop {1} {$bar_fill}  {x} {#variable {bar} {$bar█}}};
-    #if {$bar_empty > 0} {#loop {1} {$bar_empty} {x} {#variable {bar} {$bar░}}};
+    #variable {tbar} {};
+    #if {$bfil > 0} {#loop {1} {$bfil} {x} {#variable {tbar} {$tbar█}}};
+    #if {$bemp > 0} {#loop {1} {$bemp} {x} {#variable {tbar} {$tbar░}}};
 
-    #draw <fca> tile -2 1 -2 -1 { Next tick in ~${tick_left} sec  ${bar}};
+    #nop line(s) 1..tmid: the countdown ; rows tmd1..band_top: the bar.
+    #variable {ovtxt} {Next tick ~$secstr sec};
+    ov_tile <fca> 1 1 $tmid $tend;
+    #variable {ovtxt} {$tbar};
+    ov_tile <afc> $tmd1 1 $band_top $tend;
 }
 
 #alias {tick_reset}
@@ -120,13 +131,16 @@
     overlay_tick_render;
 }
 
-#nop Conditional reset for weather messages: only re-anchor if we're
-#nop already near a tick boundary (matches Mudlet weather_messages).
+#nop Weather messages only re-anchor near a tick boundary (matches the
+#nop Mudlet weather_messages trigger).
 #alias {tick_weather_reset}
 {
     #if {$tick_time >= 55 || $tick_time <= 5} {tick_reset};
 }
 
+#nop #unticker first so reloading sk.tin doesn't stack tickers (which
+#nop would make the counter run several times per second).
+#unticker {tick_update}
 #ticker {tick_update}
 {
     #math {tick_time} {$tick_time + 1};
@@ -217,20 +231,15 @@
 #nop ============================================================
 #nop  Section 4 - Scrollback control
 #nop
-#nop  In split mode TinTin++ owns the screen, so the terminal's native
-#nop  scroll is disabled. Re-bind scrolling to the #buffer command.
-#nop  `#buffer up/down` page the scrollback; `#buffer end` returns to live.
+#nop  #split puts TinTin++ in full-screen mode, disabling native scroll.
+#nop  Termux delivers a finger drag as mouse-wheel events.
+#nop  (If "#buffer up 3" errors on the count, change it to "#buffer up".)
 #nop ============================================================
 
-#nop --- Mouse wheel / finger scroll. Termux delivers a finger drag as
-#nop --- repeated mouse-wheel events, so we scroll a few lines per notch.
-#nop --- scroll_lines = lines moved per wheel event (tune to taste).
-#variable {scroll_lines} {3}
-#event {SCROLLED MOUSE WHEEL UP}   {#buffer up   ${scroll_lines}}
-#event {SCROLLED MOUSE WHEEL DOWN} {#buffer down ${scroll_lines}}
+#event {SCROLLED MOUSE WHEEL UP}   {#buffer up 3}
+#event {SCROLLED MOUSE WHEEL DOWN} {#buffer down 3}
 
-#nop --- Keyboard fallback (also handy when testing on desktop).
-#nop PageUp / PageDown scroll; End jumps back to the live feed.
+#nop Keyboard fallback: PageUp / PageDown scroll, End returns to live.
 #macro {\e[5~} {#buffer up}
 #macro {\e[6~} {#buffer down}
 #macro {\e[F}  {#buffer end}
@@ -244,7 +253,7 @@
 #event {SCREEN RESIZE}     {#variable {overlay_cols} {%1}; overlay_compass_render; overlay_tick_render}
 #event {SESSION CONNECTED} {overlay_compass_render; overlay_tick_render}
 
-#nop Try to pull current width up front (event will correct if needed).
+#nop Pull current width up front (events correct it if it changes).
 #screen {get} {COLS} {overlay_cols}
 
 overlay_compass_render
